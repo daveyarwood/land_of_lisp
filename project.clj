@@ -2,4 +2,5 @@
   :description "Games from 'Land of Lisp' rewritten in Clojure (just for funsies)"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.6.0"]])
+  :dependencies [[org.clojure/clojure "1.6.0"]]
+  :main land-of-lisp.the-wizards-adventure)
