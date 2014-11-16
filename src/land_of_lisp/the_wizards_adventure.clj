@@ -1,5 +1,40 @@
 (ns land-of-lisp.the-wizards-adventure)
 
+;; game repl
+
+(defn game-read []
+  (let [[cmd & args] (read-string (str \( (read-line) \)))]
+    (cons cmd (map #(list 'quote %) args))))
+
+(def allowed-commands
+  (set '(look walk pick-up inventory)))
+
+(defn game-eval [[cmd & args :as sexp]]
+  (if (allowed-commands cmd)
+    (eval sexp)
+    '(i do not know that command.)))
+
+(defn game-print [coll]
+  (letfn [(tweak-text [[item & more :as coll] caps lit]
+            (when coll
+              (cond
+                (= item \space) (cons item (tweak-text more caps lit))
+                (#{\! \? \.} item) (cons item (tweak-text more true lit))
+                (= item \") (tweak-text more caps (not lit))
+                lit (cons item (tweak-text more false lit))
+                (or caps lit) (cons (Character/toUpperCase item) (tweak-text more false lit))
+                :else (cons (Character/toLowerCase item) (tweak-text more false false)))))
+          (trim [s]
+            (clojure.string/replace s #"^[ ()]+|[ ()]+$" ""))]
+    (println (apply str (tweak-text (trim (pr-str coll)) true false)))))
+
+(defn game-repl []
+  (let [cmd (game-read)]
+    (when-not (= cmd '(quit))
+      (game-print (game-eval cmd))
+      (game-repl))))
+
+
 ;; places and their descriptions
 
 (def descriptions
