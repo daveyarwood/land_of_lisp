@@ -44,8 +44,6 @@
   "Creates a directed graph (dot and png files) given filename, nodes and edges."
   (dot->png fname #(graph->dot nodes edges)))
 
-(seq twa/edges)
-
 ;;;
 
 (defn- uedges->dot [edges]
