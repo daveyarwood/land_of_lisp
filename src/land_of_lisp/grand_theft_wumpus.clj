@@ -59,6 +59,8 @@
         new-connections (mapcat #(connect-island % edge-list) islands)]
     (concat edge-list new-connections)))
 
+;; building the city edges (with cops)
+
 (defn edge-map
   "Returns a map of each node to the nodes to which it is connected."
   [edge-list]
@@ -89,3 +91,34 @@
         edge-list (connect-all-islands nodes (make-edge-list))
         cops (filter (fn [_] (<= (rand) @cop-odds)) edge-list)]
     (add-cops (edge-map edge-list) cops)))
+
+;; building the nodes
+
+(defn neighbors [node edge-alist]
+  (first
+    (for [[nexus & neighbors] edge-alist
+          :when (= nexus node)]
+      (map first neighbors))))
+
+(defn within-one? [a b edge-alist]
+  (contains? (set (neighbors a edge-alist)) b))
+
+(defn within-two?  [a b edge-alist]
+  (boolean
+    (or (within-one? a b edge-alist)
+        (some #(within-one? % b edge-alist) (neighbors a edge-alist)))))
+
+(defn make-city-nodes [edge-alist]
+  (let [wumpus (random-node)
+        glow-worms (repeatedly @worm-num #(random-node))]
+    (for [n (range 1 (inc @node-num))]
+      (remove nil?
+        [n
+         (cond
+           (= n wumpus) 'wumpus
+           (within-two? n wumpus edge-alist) 'blood!)
+         (cond
+           ((set glow-worms) n) 'glow-worm
+           (some #(within-one? n % edge-alist) glow-worms) 'lights!)
+         (let [[node & neighbors] (first (filter #(= n (first %)) edge-alist))]
+           (when (some #(= (second %) 'cops) neighbors) 'sirens!))]))))
