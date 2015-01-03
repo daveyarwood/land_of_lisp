@@ -10,10 +10,10 @@
 (defn- dot-label [exp]
   (cond
     (nil? exp) ""
-    (> (count (str exp)) max-label-length) (str
+    (> (count (str/join \space exp)) max-label-length) (str
                                              (subs (str exp) 0 (- max-label-length 3))
                                              "...")
-    :else (str exp)))
+    :else (str/join \space exp)))
 
 ;;;
 
