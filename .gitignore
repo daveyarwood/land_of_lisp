@@ -8,5 +8,6 @@ pom.xml.asc
 /.lein-*
 /.nrepl-port
 .DS_Store
-city.dot
-city.dot.png
+*~
+city.dot*
+known-city.dot*
