@@ -10,9 +10,10 @@
 (defn- dot-label [exp]
   (cond
     (nil? exp) ""
-    (> (count (str/join \space exp)) max-label-length) (str
-                                             (subs (str exp) 0 (- max-label-length 3))
-                                             "...")
+
+    (> (count (str/join \space exp)) max-label-length)
+    (str (subs (str/join \space exp) 0 (- max-label-length 3)) "...")
+
     :else (str/join \space exp)))
 
 ;;;
@@ -37,8 +38,7 @@
 (defn- dot->png [fname thunk]
   (binding [*out* (java.io.FileWriter. fname)]
     (thunk))
-  (sh "dot" "-Tpng" "-O" fname)
-  (shutdown-agents))
+  (sh "dot" "-Tpng" "-O" fname))
 
 (defn graph->png [fname nodes edges]
   "Creates a directed graph (dot and png files) given filename, nodes and edges."
