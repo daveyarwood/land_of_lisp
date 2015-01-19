@@ -27,18 +27,6 @@
 (defn direct-edges [node edge-list]
   (filter #(= (first %) node) edge-list))
 
-(defn get-connected
-  "Returns the set of all nodes reachable from a given node."
-  [node edge-list]
-  (let [visited (atom #{})
-        traverse (fn traverse [node]
-                   (when-not (@visited node)
-                     (swap! visited conj node)
-                     (doseq [[from-node to-node] (direct-edges node edge-list)]
-                       (traverse to-node))))]
-    (traverse node)
-    @visited))
-
 (defn connected-nodes
   "Returns the cumulative set of all connected nodes."
   [edge-list]
