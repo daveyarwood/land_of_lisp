@@ -6,6 +6,6 @@
 
 ## License
 
-Copyright © 2014 Dave Yarwood
+Copyright © 2014-2015 Dave Yarwood
 
 Distributed under the Eclipse Public License version 1.0.
