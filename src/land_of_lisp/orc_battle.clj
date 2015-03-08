@@ -1,36 +1,31 @@
-(ns land-of-lisp.orc-battle)
+(ns land-of-lisp.orc-battle
+  (:require [fenrir :refer :all]
+            [clojure.string :as str]))
 
 ; settings
 
 (def ^:dynamic *monster-num* 12)
 
-; protocols
+; base classes
 
-(defprotocol Stats
-  (dead? [this] "Returns whether this is dead or not.")
-  (show [this] "Print stats about this."))
+(defclass Mortal [] [health]
+  (dead? [] (<= health 0))
+  (hit [damage] "Returns modified version of this with damage taken."))
 
-(defprotocol Attack
-  (attack! [this] "Attacks."))
-
-(defprotocol TakeDamage
-  (hit [this damage] "Returns modified version of this with damage taken."))
+(defclass Attacker [] [strength]
+  (attack! [] "Attacks."))
 
 ; player
 
-(declare monsters pick-monster random-monster all-dead?)
+(declare monsters pick-monster random-monster)
 
-(defrecord Player [health agility strength]
-  Stats
-  (dead? [this]
-    (<= health 0))
-  (show [this]
+(defclass Player [Mortal Attacker] [agility]
+  (show []
     (printf (str "You are a valiant knight with a health of %d, an agility "
                  "of %d, and a strength of %d.\n")
             health agility strength)
     (flush))
-  Attack
-  (attack! [this]
+  (attack! []
     (print "Attack style: [s]tab [d]ouble swing [r]oundhouse: ")
     (flush)
     (case (read-line)
@@ -41,25 +36,36 @@
             (println "Your double swing has a strength of" x)
             (dosync
                (alter (pick-monster) hit x)
-               (when-not (all-dead? @monsters)
+               (when-not (every? dead? @monsters)
                  (alter (pick-monster) hit x))))
       (dotimes [_ (+ 2 (rand-int (quot strength 3)))]
-        (when-not (all-dead? @monsters)
+        (when-not (every? dead? @monsters)
           (dosync (alter (random-monster) hit 1)))))))
 
+(def player (ref (ctor Player :health 30 :agility 30 :strength 30)))
 
-(def player (ref (->Player 30 30 30)))
-
-(defn init-player []
+(defn init-player! []
   (dosync
-    (alter player assoc-in [:health] 30)
-    (alter player assoc-in [:agility] 30)
-    (alter player assoc-in [:strength] 30)))
+    (alter player set-slot :health 30)
+    (alter player set-slot :agility 30)
+    (alter player set-slot :strength 30)))
 
 ; monsters
 
-(def monsters (ref nil))
-(def monster-builders (ref nil))
+(defclass Monster [Mortal] []
+  (ctor [] (base-ctor *fclass* :health (rand-int 10)))
+  (monster-class [] (-> (str (type *self*)) (str/split #"/") last))
+  (show [] (println "A fierce" (monster-class *self*)))
+  (hit [damage]
+    (let [after-damage (update-in *self* [:health] - damage)]
+      (if (dead? after-damage)
+        (println "You killed the" (str (monster-class *self*) \!))
+        (println "You hit the" (str (monster-class *self*) \,)
+                 "knocking off" damage "health points!"))
+      after-damage)))
+
+(def monsters (ref []))
+(def monster-builders (ref []))
 
 (defn random-monster []
   (let [monster (rand-nth @monsters)]
@@ -85,18 +91,40 @@
         (pick-monster)))))
 
 (defn show-all [monsters]
-  "to do - maybe just (doseq [m monster] (show m))")
+  (println "Your foes:")
+  (dotimes [x *monster-num*]
+    (let [monster (@monsters x)]
+      (printf "%d. %s"
+              x
+              (if (dead? monster)
+                "**dead**"
+                (printf "(Health=%d)" (:health monster))
+                (show monster))))))
 
-(defn init-monsters []
-  "to do")
+(defn init-monsters! []
+  (dosync
+    (ref-set monsters
+             (repeatedly *monster-num* ((rand-nth @monster-builders))))))
+
+(defclass Orc [Monster Attacker] [club-level]
+  (ctor [] (base-ctor *fclass* :club-level (rand-int 8)
+                               :health (:health (ctor Monster))))
+  (show [] (println "A wicked orc with a level" club-level "club"))
+  (attack! []
+    (let [damage (rand-int club-level)]
+      (println "An orc swings his club at you and knocks off" damage
+               "of your health points.")
+      (dosync (alter player update-in [:health] - damage)))))
+
+(dosync (alter monster-builders conj #(ctor Orc)))
 
 ; game
 
 (defn game-loop []
-  (when-not (or (dead? @player) (all-dead? @monsters))
+  (when-not (or (dead? @player) (every? dead? @monsters))
     (show @player)
     (dotimes [_ (inc (quot (max 0 (:agility @player)) 15))]
-      (when-not (all-dead? @monsters)
+      (when-not (every? dead? @monsters)
         (show-all @monsters)
         (attack! @player)))
     (doseq [monster @monsters]
@@ -105,11 +133,11 @@
     (recur)))
 
 (defn orc-battle []
-  (init-monsters)
-  (init-player)
+  (init-monsters!)
+  (init-player!)
   (game-loop)
   (cond
     (dead? @player)
       (println "You have been killed. Game Over.")
-    (all-dead? @monsters)
+    (every? dead? @monsters)
       (println "Congratulations! You have vanquished all of your foes.")))
