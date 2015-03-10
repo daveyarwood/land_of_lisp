@@ -151,10 +151,26 @@
         (println)))
     *self*))
 
+(defclass Brigand [Monster Attacker] []
+  (attack! []
+    (case (first (apply max-key val @player))
+      :health (do
+                (println "A brigand hits you with his slingshot, taking off"
+                         "2 health points!")
+                (dosync (alter player update-in [:health] - 2)))
+      :agility (do
+                 (println "A brigand catches your leg with his whip, taking"
+                          "off 2 agility points!")
+                 (dosync (alter player update-in [:agility] - 2)))
+      :strength (do
+                  (println "A brigand cuts your arm with his whip, taking off"
+                           "2 strength points!")
+                  (dosync (alter player update-in [:strength] - 2))))
+    *self*))
+
 (dosync
-  (alter monster-builders conj #(ctor Orc))
-  (alter monster-builders conj #(ctor Hydra))
-  (alter monster-builders conj #(ctor SlimeMold)))
+  (doseq [monster [Orc Hydra SlimeMold Brigand]]
+    (alter monster-builders conj #(ctor monster))))
 
 ; game
 
