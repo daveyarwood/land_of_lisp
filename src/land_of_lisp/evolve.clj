@@ -71,3 +71,21 @@
                        (update-in [:x] (fn [x] (rem (+ x ∆x *width*) *width*)))
                        (update-in [:y] (fn [y] (rem (+ y ∆y *height*) *height*)))))
       (alter animal update-in [:energy] dec))))
+
+(defn turn! [animal]
+  (let [{:keys [genes]} @animal
+        x               (rand-int (apply + genes))
+        angle           (fn angle [[gene & genes] x]
+                          (let [xnu (- x gene)]
+                            (if (neg? xnu)
+                              0
+                              (inc (angle genes xnu)))))]
+    (dosync
+      (alter animal update-in [:facing] #(rem (+ % (angle genes x)) 8)))))
+
+(defn eat! [animal]
+  (let [{:keys [location]} @animal]
+    (when (contains? @plants location)
+      (dosync
+       (alter animal update-in [:energy] + *plant-energy*)
+       (alter plants disj location)))))
