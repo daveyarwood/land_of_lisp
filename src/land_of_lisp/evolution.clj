@@ -1,4 +1,4 @@
-(ns land-of-lisp.evolve)
+(ns land-of-lisp.evolution)
 
 ;;; modeling data ;;;
 
@@ -35,6 +35,7 @@
 (def ^:dynamic *height* 23)
 (def ^:dynamic *jungle* (Rectangle. (Point. 45 10) (Point. 55 20)))
 (def ^:dynamic *plant-energy* 80)
+(def ^:dynamic *reproduction-energy* 200)
 
 ;;; plants ;;;
 
@@ -56,9 +57,9 @@
   (ref
     (map->Animal {:location (Point. (bit-shift-right *width* 1)
                                     (bit-shift-right *height* 1))
-                  :energy   1000
+                  :energy   350
                   :facing   UP-LEFT
-                  :genes    (repeatedly 8 #(inc (rand-int 10)))})))
+                  :genes    (vec (repeatedly 8 #(inc (rand-int 10))))})))
 
 (def animals (ref [first-animal]))
 
@@ -89,3 +90,48 @@
       (dosync
        (alter animal update-in [:energy] + *plant-energy*)
        (alter plants disj location)))))
+
+(defn reproduce! [animal]
+  (when (>= (:energy @animal) *reproduction-energy*)
+    (let [child (update-in @animal [:genes (rand-int 8)]
+                                   #(max 1 (+ % (rand-nth (range -1 2)))))]
+      (dosync
+        (alter animal update-in [:energy] #(bit-shift-right % 1))
+        (alter animals conj (ref child))))))
+
+;;; world ;;;
+
+(defn update-world! []
+  (dosync (alter animals (partial remove #(<= (:energy @%) 0))))
+  (doseq [animal @animals]
+    (turn! animal)
+    (move! animal)
+    (eat! animal)
+    (reproduce! animal))
+  (add-plants!))
+
+(defn draw-world! []
+  (letfn [(pos [{:keys [x y]}]
+            (cond
+              (some #(= (:location @%) (Point. x y)) @animals) \M
+              (contains? @plants (Point. x y))                 \*
+              :else                                            \space))
+          (row [y]
+            (concat [\|]
+                    (for [x (range *width*)]
+                      (pos (Point. x y)))
+                    [\| \newline]))]
+    (let [rows (for [y (range *height*)]
+                 (apply str (row y)))]
+      (println (apply str rows)))))
+
+(defn evolution []
+  (draw-world!)
+  (let [input (read-line)]
+    (when-not (= input "quit")
+      (let [days (try (Integer/parseInt input)
+                   (catch NumberFormatException e 1))]
+        (dotimes [x days]
+          (update-world!)
+          (if (zero? (rem x 50)) (println \.)))
+        (recur)))))
