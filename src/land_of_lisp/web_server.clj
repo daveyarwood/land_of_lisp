@@ -27,7 +27,7 @@
        (map #(str/split % #"="))
        (into {})))
 
-(defn parse-url-and-params [s]
+(defn parse-url [s]
   (let [url-and-params     #"([^\s/]+)\?(\S+)"
         url-without-params #"[\s/]+([^\s\?]+)\s+"]
     (if-let [[_ url params] (re-find url-and-params s)]
@@ -36,3 +36,7 @@
         [url]
         []))))
 
+(defn get-header [stream]
+  ; todo... questions:
+  ; 1) does it make sense to work directly with streams like this in Clojure?
+  ; 2) should this fn just operate on a string?
