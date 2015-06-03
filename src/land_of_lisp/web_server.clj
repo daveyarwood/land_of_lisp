@@ -36,7 +36,15 @@
         [url]
         []))))
 
-(defn get-header [stream]
-  ; todo... questions:
-  ; 1) does it make sense to work directly with streams like this in Clojure?
-  ; 2) should this fn just operate on a string?
+(defn get-headers [rdr]
+  (when-let [line (.readLine rdr)]
+    (when-let [[_ k v] (re-find #"(.*):\s*(.*)" line)]
+      (merge {k v} (get-headers rdr)))))
+
+(defn get-content-params [stream headers]
+  (when-let [content-length (headers "Content-Length")]
+    (let [n (Integer/parseInt content-length)
+          chars (->> (repeatedly n #(.read stream))
+                     (map #(when-not (= % -1) (char %))))]
+     (parse-params (apply str chars))))) 
+
