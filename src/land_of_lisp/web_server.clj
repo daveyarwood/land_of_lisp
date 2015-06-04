@@ -1,5 +1,9 @@
 (ns land-of-lisp.web-server
-  (:require [clojure.string :as str]))
+  (:require [clojure.string     :as    str]
+            [ring.adapter.jetty :refer (run-jetty)]
+            [compojure.core     :refer :all]
+            [compojure.route    :as    route]
+            [compojure.handler  :as    handler]))
 
 (defn- hex->int
   "Attempt to parse a hex number string (e.g. '3f') to an integer.
@@ -48,3 +52,15 @@
                      (map #(when-not (= % -1) (char %))))]
      (parse-params (apply str chars))))) 
 
+; at this point I'm just reimplementing ring/jetty/compojure, so I'm just 
+; gonna use those libraries instead :P
+
+(defroutes app
+  (GET "/greeting" [name]
+    (if name
+      (format "<html>Nice to meet you, %s!</html>" name)
+      "<html><form>What is your name?<input name='name'/></form></html>"))
+  (route/not-found "Sorry... I don't know that page."))
+
+(defn serve []
+  (run-jetty (handler/site app) {:port 3000}))
