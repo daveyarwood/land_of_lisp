@@ -1,4 +1,5 @@
-(ns land-of-lisp.dice-of-doom)
+(ns land-of-lisp.dice-of-doom
+  (:require [clojure.string :as str]))
 
 (def ^:dynamic *num-players* 2)
 (def ^:dynamic *max-dice* 3)
@@ -10,36 +11,40 @@
     (repeatedly *board-hexnum* #(hash-map :player (rand-int *num-players*)
                                           :dice   (inc (rand-int *max-dice*))))))
 
-(defn player-letter [n]
-  (char (+ 97 n)))
-
-(defn draw-board [board]
-  (doseq [y (range *board-size*)]
-    (print (apply str (repeat (- *board-size* y) \space)))
-    (doseq [x (range *board-size*)]
-      (let [{:keys [player dice]} (nth board (+ x (* *board-size* y)))]
-        (printf "%s-%s " (player-letter player) dice)))
-    (println))) 
-
-(declare add-passing-move attacking-moves add-new-dice)
+(declare add-passing-move attacking-moves)
 
 (defn game-tree [board player spare-dice first-move?]
-  (list player
-        board
-        (add-passing-move board
-                          player
-                          spare-dice
-                          first-move?
-                          (attacking-moves board player spare-dice)))) 
+  {:player player
+   :board  board 
+   :moves  (add-passing-move board
+                             player
+                             spare-dice
+                             first-move?
+                             (attacking-moves board player spare-dice))}) 
+
+(defn add-new-dice [board player spare-dice]
+  (letfn [(f [[{cur-player :player 
+                cur-dice   :dice :as x} & more :as board]
+              n]
+            (cond
+              (nil? x)  nil
+              (zero? n) board
+              :else     (if (and (= cur-player player)
+                                 (< cur-dice *max-dice*))
+                          (cons {:player cur-player
+                                 :dice (inc cur-dice)}
+                                (f more (dec n)))
+                          (cons x (f more n)))))]
+    (into [] (f board spare-dice))))
 
 (defn add-passing-move [board player spare-dice first-move? moves]
   (if first-move?
     moves
-    (cons (list nil ;  description of move (pass = nil)
-                (game-tree (add-new-dice board player (dec spare-dice))
-                           (mod (inc player) *num-players*)
-                           0
-                           true))
+    (cons {:move   :pass
+           :result (game-tree (add-new-dice board player (dec spare-dice))
+                              (mod (inc player) *num-players*)
+                              0
+                              true)}
           moves)))
 
 (defn neighbors [pos]
@@ -68,11 +73,62 @@
                 (mapcat (fn [dest]
                           (when (and (not= (player dest) cur-player)
                                      (> (dice src) (dice dest)))
-                            (list 
-                              (list (list src dest)
-                                    (game-tree (board-attack board cur-player src dest (dice src))
-                                               cur-player
-                                               (+ spare-dice (dice dest))
-                                               nil)))))
+                            (list
+                              {:move   {:from src :to dest}
+                               :result (game-tree (board-attack board 
+                                                                cur-player 
+                                                                src 
+                                                                dest 
+                                                                (dice src))
+                                                  cur-player
+                                                  (+ spare-dice (dice dest))
+                                                  nil)})))
                         (neighbors src))))
-            (range *board-hexnum*))))
+      (range *board-hexnum*))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn player-letter [n]
+  (char (+ 97 n)))
+
+(defn draw-board [board]
+  (doseq [y (range *board-size*)]
+    (print (apply str (repeat (- *board-size* y) \space)))
+    (doseq [x (range *board-size*)]
+      (let [{:keys [player dice]} (nth board (+ x (* *board-size* y)))]
+        (printf "%s-%s " (player-letter player) dice)))
+    (println))) 
+
+(defn print-info [{:keys [board player] :as tree}]
+  (println "current player =" (player-letter player) \newline)
+  (draw-board board))
+
+(defn handle-human [{:keys [moves] :as tree}]
+  (println "choose your move:\n")
+  (doseq [n (range (count moves))]
+    (printf "%s. " (inc n))
+    (let [{:keys [move]} (nth moves n)]
+      (if (not= move :pass)
+        (println (:from move) "->" (:to move))
+        (println "end turn"))))
+  (:result (nth moves (dec (Integer/parseInt (read-line))))))
+
+(defn winners [board]
+  (let [totals (frequencies (map :player board))
+        best   (apply max (vals totals))]
+    (for [[player score] totals :when (= score best)]
+      player)))
+
+(defn announce-winner [board] 
+  (let [w (winners board)]
+    (if (> (count w) 1)
+      (println "The game is a tie between:" 
+               (str/join ", " (map player-letter w)))
+      (println "The winner is" (player-letter (first w))))))
+
+(defn play-vs-human [{:keys [board moves] :as tree}]
+  (print-info tree)
+  (println)
+  (if (empty? moves)
+    (announce-winner board)
+    (play-vs-human (handle-human tree))))
