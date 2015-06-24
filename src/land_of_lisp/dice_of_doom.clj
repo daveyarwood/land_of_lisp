@@ -3,7 +3,7 @@
 
 (def ^:dynamic *num-players* 2)
 (def ^:dynamic *max-dice* 3)
-(def ^:dynamic *board-size* 2)
+(def ^:dynamic *board-size* 3)
 (def ^:dynamic *board-hexnum* (* *board-size* *board-size*))
 
 (defn gen-board []
@@ -13,7 +13,7 @@
 
 (declare add-passing-move attacking-moves)
 
-(defn game-tree [board player spare-dice first-move?]
+(defn game-tree* [board player spare-dice first-move?]
   {:player player
    :board  board 
    :moves  (add-passing-move board
@@ -22,20 +22,20 @@
                              first-move?
                              (attacking-moves board player spare-dice))}) 
 
+(def game-tree (memoize game-tree*))
+
 (defn add-new-dice [board player spare-dice]
-  (letfn [(f [[{cur-player :player 
-                cur-dice   :dice :as x} & more :as board]
-              n]
-            (cond
-              (nil? x)  nil
-              (zero? n) board
-              :else     (if (and (= cur-player player)
-                                 (< cur-dice *max-dice*))
-                          (cons {:player cur-player
-                                 :dice (inc cur-dice)}
-                                (f more (dec n)))
-                          (cons x (f more n)))))]
-    (into [] (f board spare-dice))))
+  (loop [acc []
+         [{cur-player :player
+           cur-dice   :dice :as x} & more] board
+         n spare-dice]
+    (if (or (nil? x) (zero? n)) 
+      (vec (concat acc (drop (count acc) board)))
+      (let [[updated new-n] (if (and (= cur-player player)
+                                      (< cur-dice *max-dice*))
+                               [(update-in x [:dice] inc) (dec n)]
+                               [x n])]
+        (recur (conj acc updated) more new-n)))))
 
 (defn add-passing-move [board player spare-dice first-move? moves]
   (if first-move?
@@ -47,7 +47,7 @@
                               true)}
           moves)))
 
-(defn neighbors [pos]
+(defn neighbors* [pos]
   (let [up   (- pos *board-size*)
         down (+ pos *board-size*)]
     (filter #(and (not (neg? %)) 
@@ -57,6 +57,8 @@
                       (list (dec up) (dec pos)))
                     (when-not (zero? (mod (inc pos) *board-size*))
                       (list (inc pos) (inc down)))))))
+
+(def neighbors (memoize neighbors*))
 
 (defn board-attack [board player src dest dice]
   (mapv #(condp = %
@@ -132,3 +134,39 @@
   (if (empty? moves)
     (announce-winner board)
     (play-vs-human (handle-human tree))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(declare get-ratings)
+
+(defn rate-position* [tree player]
+  (if-not (empty? (:moves tree))
+    (apply (if (= (:player tree) player) max min)
+           (get-ratings tree player))
+    (let [w (winners (:board tree))]
+      (if (contains? (set w) player)
+        (/ 1 (count w))
+        0))))
+
+(def rate-position (memoize rate-position*))
+
+(defn get-ratings [{:keys [moves]} player]
+  (map (fn [{:keys [result]}] 
+         (rate-position result player)) 
+       moves))
+
+(defn handle-computer [{:keys [player moves] :as tree}]
+  (let [ratings (get-ratings tree player)]  
+    (->> (map-indexed vector ratings)
+         (apply max-key second)
+         first
+         (nth moves)
+         :result)))
+
+(defn play-vs-computer [{:keys [player board moves] :as tree}]
+  (print-info tree)
+  (println)
+  (cond 
+    (empty? moves) (announce-winner board)
+    (zero? player) (play-vs-computer (handle-human tree))
+    :else          (play-vs-computer (handle-computer tree))))
