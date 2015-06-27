@@ -7,10 +7,10 @@
     (cons cmd (map #(list 'quote %) args))))
 
 (def allowed-commands
-  (set '(look walk pick-up inventory)))
+  (atom '#{look walk pick-up inventory}))
 
 (defn game-eval [[cmd & args :as sexp]]
-  (if (allowed-commands cmd)
+  (if (@allowed-commands cmd)
     (eval sexp)
     '(i do not know that command.)))
 
@@ -33,7 +33,6 @@
     (when-not (= cmd '(quit))
       (game-print (game-eval cmd))
       (game-repl))))
-
 
 ;; places and their descriptions
 
@@ -103,3 +102,47 @@
 
 (defn inventory []
   (cons 'items- (objects-at 'body @object-locations)))
+
+(defn have [object]
+  (contains? (set (rest (inventory))) object))
+
+;; plot-specific things
+
+(defmacro game-action [command subj obj place & body]
+  `(do
+     (defn ~command [subject# object#]
+       (if (and (= @location '~place)
+                (= subject# '~subj)
+                (= object# '~obj)
+                (have '~subj))
+         ~@body
+         (list '~'you '~'cannot '~command '~'like '~'that.)))
+     (swap! allowed-commands conj '~command)))
+
+(def chain-welded? (atom false))
+
+(game-action weld chain bucket attic
+  (cond 
+    @chain-welded?       '(you already did that!)
+    (not (have 'bucket)) '(you do not have a bucket.)
+    :else (do
+            (reset! chain-welded? true)
+            '(the chain is now securely welded to the bucket.))))
+
+(def bucket-filled? (atom false))
+
+(game-action dunk bucket well garden
+  (if @chain-welded? 
+    (do
+      (reset! bucket-filled? true)
+      '(the bucket is now full of water.))
+    '(the water level is too low to reach.)))
+
+(game-action splash bucket wizard living-room
+  (cond 
+    (not @bucket-filled?) '(the bucket has nothing in it.)
+    (have 'frog) '(the wizard awakens and sees that you stole his frog.
+                   he is so upset he banishes you to the netherworlds-
+                   you lose! the end.)
+    :else '(the wizard awakens from his slumber and greets you warmly.
+            he hands you the magic low-carb donut- you win! the end.)))
