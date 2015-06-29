@@ -3,7 +3,7 @@
 
 (def ^:dynamic *num-players* 2)
 (def ^:dynamic *max-dice* 3)
-(def ^:dynamic *board-size* 3)
+(def ^:dynamic *board-size* 4)
 (def ^:dynamic *board-hexnum* (* *board-size* *board-size*))
 
 (defn gen-board []
@@ -20,7 +20,7 @@
                              player
                              spare-dice
                              first-move?
-                             (attacking-moves board player spare-dice))}) 
+                             (lazy-seq (attacking-moves board player spare-dice)))}) 
 
 (def game-tree (memoize game-tree*))
 
@@ -86,7 +86,7 @@
                                                   (+ spare-dice (dice dest))
                                                   nil)})))
                         (neighbors src))))
-      (range *board-hexnum*))))
+            (range *board-hexnum*))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
