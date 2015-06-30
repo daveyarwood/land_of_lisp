@@ -9,4 +9,4 @@
                  [ring/ring-jetty-adapter   "1.3.2"]
                  [javax.servlet/servlet-api "2.5"]
                  [compojure                 "1.3.4"]]
-  :main land-of-lisp.the-wizards-adventure)
+  :main land-of-lisp.dice-of-doom)

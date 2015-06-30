@@ -137,6 +137,18 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn limit-tree-depth 
+  "Our game trees are 'lazy' in that their :moves are lazy sequences. 
+   This function realizes `depth` levels of a game tree, returning
+   :bottom for :moves if `depth` is zero."
+  [{:keys [moves] :as tree} depth]
+  (assoc tree :moves (if (zero? depth)
+                       []
+                       (map (fn [{:keys [move result]}]
+                              {:move   move
+                               :result (limit-tree-depth result (dec depth))})
+                            moves))))
+
 (declare get-ratings)
 
 (defn rate-position* [tree player]
