@@ -149,16 +149,30 @@
                                :result (limit-tree-depth result (dec depth))})
                             moves))))
 
+(def ^:dynamic *ai-level* 4)
+
+(defn threatened? [pos board]
+  (let [{:keys [player dice]} (nth board pos)]
+    (some (fn [n]
+            (let [{nplayer :player ndice :dice} (nth board n)]
+              (and (not= nplayer player)
+                   (> ndice dice))))
+          (neighbors pos))))
+
+(defn score-board [board player]
+  (reduce + (for [pos (range (count board))
+                  :let [hex (nth board pos)]]
+              (if (= (:player hex) player)
+                (if (threatened? pos board) 1 2)
+                -1))))
+
 (declare get-ratings)
 
 (defn rate-position* [tree player]
   (if-not (empty? (:moves tree))
     (apply (if (= (:player tree) player) max min)
            (get-ratings tree player))
-    (let [w (winners (:board tree))]
-      (if (contains? (set w) player)
-        (/ 1 (count w))
-        0))))
+    (score-board (:board tree) player)))
 
 (def rate-position (memoize rate-position*))
 
@@ -168,7 +182,7 @@
        moves))
 
 (defn handle-computer [{:keys [player moves] :as tree}]
-  (let [ratings (get-ratings tree player)]  
+  (let [ratings (get-ratings (limit-tree-depth tree *ai-level*) player)]  
     (->> (map-indexed vector ratings)
          (apply max-key second)
          first
