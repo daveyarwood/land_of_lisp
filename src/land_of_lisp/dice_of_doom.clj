@@ -3,7 +3,7 @@
 
 (def ^:dynamic *num-players* 2)
 (def ^:dynamic *max-dice* 3)
-(def ^:dynamic *board-size* 4)
+(def ^:dynamic *board-size* 5)
 (def ^:dynamic *board-hexnum* (* *board-size* *board-size*))
 
 (defn gen-board []
@@ -166,23 +166,50 @@
                 (if (threatened? pos board) 1 2)
                 -1))))
 
-(declare get-ratings)
+(declare ab-rate-position)
 
-(defn rate-position* [tree player]
+(defn ab-get-ratings-max [{:keys [moves]} player upper-limit lower-limit]
+  (letfn [(f [[move & moves] lower-limit]
+            (when move
+              (let [rating (ab-rate-position (:result move) 
+                                             player 
+                                             upper-limit 
+                                             lower-limit)]
+                (if (>= rating upper-limit)
+                  (list rating)
+                  (cons rating (f moves (max rating lower-limit)))))))]
+    (f moves lower-limit)))
+
+(defn ab-get-ratings-min [{:keys [moves]} player upper-limit lower-limit]
+  (letfn [(f [[move & moves] upper-limit]
+            (when move
+              (let [rating (ab-rate-position (:result move) 
+                                             player 
+                                             upper-limit 
+                                             lower-limit)]
+                (if (<= rating lower-limit)
+                  (list rating)
+                  (cons rating (f moves (min rating upper-limit)))))))]
+    (f moves upper-limit)))
+
+(defn ab-rate-position [tree player upper-limit lower-limit]
   (if-not (empty? (:moves tree))
-    (apply (if (= (:player tree) player) max min)
-           (get-ratings tree player))
+    (if (= (:player tree) player)
+      (apply max (ab-get-ratings-max tree
+                                     player
+                                     upper-limit
+                                     lower-limit))
+      (apply min (ab-get-ratings-min tree
+                                     player
+                                     upper-limit
+                                     lower-limit)))
     (score-board (:board tree) player)))
 
-(def rate-position (memoize rate-position*))
-
-(defn get-ratings [{:keys [moves]} player]
-  (map (fn [{:keys [result]}] 
-         (rate-position result player)) 
-       moves))
-
 (defn handle-computer [{:keys [player moves] :as tree}]
-  (let [ratings (get-ratings (limit-tree-depth tree *ai-level*) player)]  
+  (let [ratings (ab-get-ratings-max (limit-tree-depth tree *ai-level*)
+                                    player
+                                    Integer/MAX_VALUE
+                                    Integer/MIN_VALUE)]  
     (->> (map-indexed vector ratings)
          (apply max-key second)
          first
