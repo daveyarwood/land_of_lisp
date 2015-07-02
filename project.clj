@@ -8,5 +8,6 @@
                  [ring/ring-core            "1.4.0-RC1"]
                  [ring/ring-jetty-adapter   "1.3.2"]
                  [javax.servlet/servlet-api "2.5"]
-                 [compojure                 "1.3.4"]]
-  :main land-of-lisp.dice-of-doom)
+                 [compojure                 "1.3.4"]
+                 [hiccup                    "1.0.5"]]
+  :main land-of-lisp.dice-of-doom-web)
